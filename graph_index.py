@@ -1,0 +1,114 @@
+# graph_index.py
+# Builds and loads a PropertyGraphIndex using LlamaIndex for the DevMind Assistant.
+# NOTE: Settings.llm and Settings.embed_model are set globally in app.py before this module is imported.
+
+import os
+import asyncio
+from llama_index.core import (
+    SimpleDirectoryReader,
+    VectorStoreIndex,
+    StorageContext,
+    load_index_from_storage,
+    Settings,
+)
+from chunkers import get_code_splitter, get_markdown_parser
+
+
+# ─── Supported extensions ─────────────────────────────────────────────────────
+CODE_EXT_MAP = {".py": "python", ".js": "javascript", ".ts": "typescript", ".jsx": "javascript", ".tsx": "typescript"}
+MD_EXTS      = {".md", ".mdx", ".rst"}
+TEXT_EXTS    = {".txt", ".yaml", ".yml", ".toml", ".json", ".env.example", ".sh", ".cfg", ".ini"}
+ALL_EXTS     = list(CODE_EXT_MAP.keys()) + list(MD_EXTS) + list(TEXT_EXTS)
+
+
+def _ensure_event_loop():
+    """Guarantee there is a running, non-closed event loop before LlamaIndex async calls."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("closed")
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
+
+
+def build_index(repo_path: str = "./repo", storage_dir: str = "./storage") -> VectorStoreIndex:
+    """
+    Ingests repository files and builds a VectorStoreIndex.
+    Uses VectorStoreIndex (simpler, more stable) instead of PropertyGraphIndex
+    to avoid asyncio issues while still supporting semantic code search.
+    """
+    _ensure_event_loop()
+
+    if not os.path.exists(repo_path):
+        raise FileNotFoundError(f"Repository path not found: {repo_path}")
+
+    # ── Load all relevant files ──────────────────────────────────────────────
+    reader = SimpleDirectoryReader(
+        input_dir=repo_path,
+        required_exts=ALL_EXTS,
+        recursive=True,
+        exclude_hidden=True,
+    )
+
+    try:
+        documents = reader.load_data()
+    except Exception as e:
+        raise RuntimeError(f"Failed to read repository files: {e}")
+
+    if not documents:
+        raise ValueError(
+            f"No supported files found in '{repo_path}'.\n"
+            f"Supported extensions: {', '.join(ALL_EXTS)}"
+        )
+
+    print(f"📂 Loaded {len(documents)} documents from {repo_path}")
+
+    # ── Chunk each document with the right parser ────────────────────────────
+    nodes = []
+    for doc in documents:
+        ext = os.path.splitext(doc.metadata.get("file_name", ""))[1].lower()
+        try:
+            if ext in CODE_EXT_MAP:
+                splitter = get_code_splitter(CODE_EXT_MAP[ext])
+                nodes.extend(splitter.get_nodes_from_documents([doc]))
+            elif ext in MD_EXTS:
+                parser = get_markdown_parser()
+                nodes.extend(parser.get_nodes_from_documents([doc]))
+            else:
+                # Plain text / config files — simple sentence splitter
+                from llama_index.core.node_parser import SentenceSplitter
+                splitter = SentenceSplitter(chunk_size=512, chunk_overlap=64)
+                nodes.extend(splitter.get_nodes_from_documents([doc]))
+        except Exception as e:
+            print(f"⚠️  Skipping {doc.metadata.get('file_name', '?')} — chunking error: {e}")
+            continue
+
+    if not nodes:
+        raise ValueError("No nodes extracted from documents. The files may be empty.")
+
+    print(f"🔗 Extracted {len(nodes)} nodes from {len(documents)} documents.")
+
+    # ── Build VectorStoreIndex ───────────────────────────────────────────────
+    _ensure_event_loop()
+    index = VectorStoreIndex(
+        nodes=nodes,
+        show_progress=True,
+    )
+
+    # ── Persist ──────────────────────────────────────────────────────────────
+    os.makedirs(storage_dir, exist_ok=True)
+    index.storage_context.persist(persist_dir=storage_dir)
+    print(f"💾 Index persisted to {storage_dir}")
+    return index
+
+
+def load_index(storage_dir: str = "./storage") -> VectorStoreIndex:
+    """Loads a previously persisted VectorStoreIndex from storage."""
+    _ensure_event_loop()
+    if not os.path.exists(storage_dir):
+        raise FileNotFoundError(f"Storage directory not found: {storage_dir}")
+    print(f"📂 Loading index from {storage_dir}...")
+    storage_context = StorageContext.from_defaults(persist_dir=storage_dir)
+    return load_index_from_storage(storage_context)

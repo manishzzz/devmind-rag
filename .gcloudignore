@@ -1,0 +1,13 @@
+.gcloudignore
+.git
+.gitignore
+__pycache__
+repo/
+storage/
+.env
+error.log
+*.pyc
+*.pyo
+*.pyd
+.db
+.ipynb_checkpoints
