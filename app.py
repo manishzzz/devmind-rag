@@ -30,8 +30,8 @@ INIT_ERROR = None
 if os.getenv("GROQ_API_KEY"):
     try:
         from llama_index.llms.groq import Groq
-        Settings.llm = Groq(model="llama3-70b-8192", api_key=os.getenv("GROQ_API_KEY"))
-        MODELS_MODE = "Groq (Llama 3)"
+        Settings.llm = Groq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+        MODELS_MODE = "Groq (Llama 3.3)"
     except Exception as e:
         INIT_ERROR = f"Groq Init Failed: {e}"
 
