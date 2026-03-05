@@ -20,39 +20,57 @@ except RuntimeError:
 import nest_asyncio
 nest_asyncio.apply()
 
-#  Configure Models (Gemini if API Key exists, else local Ollama) 
+# Configure Models (Gemini if API Key exists, else local Ollama)
 from llama_index.core import Settings
 
+MODELS_MODE = "Unknown"
+GEMINI_INIT_ERROR = None
+
 if os.getenv("GOOGLE_API_KEY"):
-    from llama_index.llms.gemini import Gemini
-    from llama_index.embeddings.gemini import GeminiEmbedding
-    
-    # Use the most stable and widely supported model names
-    Settings.llm = Gemini(model="models/gemini-1.5-flash")
-    Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004")
-    MODELS_MODE = "Gemini (Cloud)"
-    
-    # --- Debug: List Models (Optional) ---
-    if st.sidebar.checkbox("Debug: List available models"):
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-            models = [m.name for m in genai.list_models()]
-            st.sidebar.write("Available models:")
-            st.sidebar.code("\n".join(models))
-        except Exception as e:
-            st.sidebar.error(f"Debug failed: {e}")
+    try:
+        from llama_index.llms.gemini import Gemini
+        from llama_index.embeddings.gemini import GeminiEmbedding
+        
+        # In 2026, we use the latest flash and embedding models
+        # Standardize on names that are less likely to 404
+        Settings.llm = Gemini(model="gemini-1.5-flash")
+        Settings.embed_model = GeminiEmbedding(model_name="text-embedding-004")
+        MODELS_MODE = "Gemini (Cloud)"
+    except Exception as e:
+        GEMINI_INIT_ERROR = str(e)
+        MODELS_MODE = "Gemini (Init Failed)"
 else:
-    from llama_index.llms.ollama import Ollama
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-    
-    Settings.llm = Ollama(model="llama2", request_timeout=600.0)
-    Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
-    MODELS_MODE = "Ollama (Local)"
+    try:
+        from llama_index.llms.ollama import Ollama
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        
+        Settings.llm = Ollama(model="llama2", request_timeout=600.0)
+        Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        MODELS_MODE = "Ollama (Local)"
+    except Exception as e:
+        GEMINI_INIT_ERROR = f"Ollama setup failed: {e}"
+        MODELS_MODE = "Ollama (Offline)"
 
 from ingest import clone_repo
 from graph_index import build_index, load_index
 from query_engine import get_answer
+
+# Display initialization error if any
+if GEMINI_INIT_ERROR:
+    st.sidebar.error(f"Initialization Error: {GEMINI_INIT_ERROR}")
+    if "models/" not in GEMINI_INIT_ERROR:
+        st.sidebar.info("Tip: Try adding or removing 'models/' prefix in the model name.")
+
+# Debug: List Models (Optional)
+if st.sidebar.checkbox("Debug: List available models"):
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        models = [m.name for m in genai.list_models()]
+        st.sidebar.write("Available models for your API key:")
+        st.sidebar.code("\n".join(models))
+    except Exception as e:
+        st.sidebar.error(f"Debug failed: {e}")
 
 load_dotenv()
 
