@@ -14,7 +14,7 @@ from llama_index.core import (
 from chunkers import get_code_splitter, get_markdown_parser
 
 
-# ─── Supported extensions ─────────────────────────────────────────────────────
+# â”€â”€â”€ Supported extensions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CODE_EXT_MAP = {".py": "python", ".js": "javascript", ".ts": "typescript", ".jsx": "javascript", ".tsx": "typescript"}
 MD_EXTS      = {".md", ".mdx", ".rst"}
 TEXT_EXTS    = {".txt", ".yaml", ".yml", ".toml", ".json", ".env.example", ".sh", ".cfg", ".ini"}
@@ -44,7 +44,7 @@ def build_index(repo_path: str = "./repo", storage_dir: str = "./storage") -> Ve
     if not os.path.exists(repo_path):
         raise FileNotFoundError(f"Repository path not found: {repo_path}")
 
-    # ── Load all relevant files ──────────────────────────────────────────────
+    # â”€â”€ Load all relevant files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     reader = SimpleDirectoryReader(
         input_dir=repo_path,
         required_exts=ALL_EXTS,
@@ -63,9 +63,9 @@ def build_index(repo_path: str = "./repo", storage_dir: str = "./storage") -> Ve
             f"Supported extensions: {', '.join(ALL_EXTS)}"
         )
 
-    print(f"📂 Loaded {len(documents)} documents from {repo_path}")
+    print(f"ðŸ“‚ Loaded {len(documents)} documents from {repo_path}")
 
-    # ── Chunk each document with the right parser ────────────────────────────
+    # â”€â”€ Chunk each document with the right parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     nodes = []
     for doc in documents:
         ext = os.path.splitext(doc.metadata.get("file_name", ""))[1].lower()
@@ -77,30 +77,30 @@ def build_index(repo_path: str = "./repo", storage_dir: str = "./storage") -> Ve
                 parser = get_markdown_parser()
                 nodes.extend(parser.get_nodes_from_documents([doc]))
             else:
-                # Plain text / config files — simple sentence splitter
+                # Plain text / config files â€” simple sentence splitter
                 from llama_index.core.node_parser import SentenceSplitter
                 splitter = SentenceSplitter(chunk_size=512, chunk_overlap=64)
                 nodes.extend(splitter.get_nodes_from_documents([doc]))
         except Exception as e:
-            print(f"⚠️  Skipping {doc.metadata.get('file_name', '?')} — chunking error: {e}")
+            print(f"âš ï¸  Skipping {doc.metadata.get('file_name', '?')} â€” chunking error: {e}")
             continue
 
     if not nodes:
         raise ValueError("No nodes extracted from documents. The files may be empty.")
 
-    print(f"🔗 Extracted {len(nodes)} nodes from {len(documents)} documents.")
+    print(f"ðŸ”— Extracted {len(nodes)} nodes from {len(documents)} documents.")
 
-    # ── Build VectorStoreIndex ───────────────────────────────────────────────
+    # â”€â”€ Build VectorStoreIndex â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     _ensure_event_loop()
     index = VectorStoreIndex(
         nodes=nodes,
         show_progress=True,
     )
 
-    # ── Persist ──────────────────────────────────────────────────────────────
+    # â”€â”€ Persist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     os.makedirs(storage_dir, exist_ok=True)
     index.storage_context.persist(persist_dir=storage_dir)
-    print(f"💾 Index persisted to {storage_dir}")
+    print(f"ðŸ’¾ Index persisted to {storage_dir}")
     return index
 
 
@@ -109,6 +109,6 @@ def load_index(storage_dir: str = "./storage") -> VectorStoreIndex:
     _ensure_event_loop()
     if not os.path.exists(storage_dir):
         raise FileNotFoundError(f"Storage directory not found: {storage_dir}")
-    print(f"📂 Loading index from {storage_dir}...")
+    print(f"ðŸ“‚ Loading index from {storage_dir}...")
     storage_context = StorageContext.from_defaults(persist_dir=storage_dir)
     return load_index_from_storage(storage_context)

@@ -1,4 +1,4 @@
-# DevMind - Codebase-Aware RAG Assistant
+  # DevMind - Codebase-Aware RAG Assistant
 
 DevMind is an advanced AI assistant that understands your codebase using LlamaIndex's `PropertyGraphIndex`. It classifies your questions to provide accurate answers regarding function explanations, architecture overview, debugging, and issue/PR summaries.
 

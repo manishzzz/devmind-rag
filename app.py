@@ -1,13 +1,13 @@
 
 # app.py
-# Premium Streamlit UI for DevMind – Codebase-Aware RAG Assistant.
+# Premium Streamlit UI for DevMind â€“ Codebase-Aware RAG Assistant.
 
 import os
 import asyncio
 import streamlit as st
 from dotenv import load_dotenv
 
-# ─── Fix asyncio event loop for Streamlit + LlamaIndex ───────────────────────
+# â”€â”€â”€ Fix asyncio event loop for Streamlit + LlamaIndex â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 try:
     loop = asyncio.get_event_loop()
     if loop.is_closed():
@@ -20,7 +20,7 @@ except RuntimeError:
 import nest_asyncio
 nest_asyncio.apply()
 
-# ─── Configure Models (Gemini if API Key exists, else local Ollama) ──────────
+# â”€â”€â”€ Configure Models (Gemini if API Key exists, else local Ollama) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 from llama_index.core import Settings
 
 if os.getenv("GOOGLE_API_KEY"):
@@ -44,20 +44,20 @@ from query_engine import get_answer
 
 load_dotenv()
 
-# ─── Page Config ─────────────────────────────────────────────────────────────
+# â”€â”€â”€ Page Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 st.set_page_config(
-    page_title="DevMind – Codebase RAG Assistant",
-    page_icon="🧠",
+    page_title="DevMind â€“ Codebase RAG Assistant",
+    page_icon="ðŸ§ ",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── Custom CSS ──────────────────────────────────────────────────────────────
+# â”€â”€â”€ Custom CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Root & Background ── */
+/* â”€â”€ Root & Background â”€â”€ */
 html, body, [data-testid="stAppViewContainer"] {
     background: #0d0f1a !important;
     color: #e2e8f0 !important;
@@ -66,7 +66,7 @@ html, body, [data-testid="stAppViewContainer"] {
 [data-testid="stHeader"], .stApp header { background: transparent !important; }
 [data-testid="stSidebar"] { background: #111320 !important; border-right: 1px solid #1e2235; }
 
-/* ── Hero Banner ── */
+/* â”€â”€ Hero Banner â”€â”€ */
 .hero-banner {
     background: linear-gradient(135deg, #1a1f3a 0%, #0f1629 50%, #151b35 100%);
     border: 1px solid #2a3158;
@@ -101,7 +101,7 @@ html, body, [data-testid="stAppViewContainer"] {
     margin: 0;
 }
 
-/* ── Chat Messages ── */
+/* â”€â”€ Chat Messages â”€â”€ */
 .chat-container {
     display: flex;
     flex-direction: column;
@@ -129,7 +129,7 @@ html, body, [data-testid="stAppViewContainer"] {
     position: relative;
 }
 .msg-assistant::before {
-    content: '🧠';
+    content: 'ðŸ§ ';
     position: absolute;
     top: -12px; left: 10px;
     font-size: 1.1rem;
@@ -149,7 +149,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .badge-DEBUG      { background: #3b1f1f; color: #f87171; border: 1px solid #dc262655; }
 .badge-ISSUE_PR   { background: #1f3b2a; color: #4ade80; border: 1px solid #16a34a55; }
 
-/* ── Sidebar UI ── */
+/* â”€â”€ Sidebar UI â”€â”€ */
 .sidebar-section {
     background: #161927;
     border: 1px solid #1e2438;
@@ -177,7 +177,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .status-dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
 
-/* ── Input area ── */
+/* â”€â”€ Input area â”€â”€ */
 [data-testid="stTextInput"] > div > div > input {
     background: #131824 !important;
     border: 1px solid #2a3158 !important;
@@ -193,7 +193,7 @@ html, body, [data-testid="stAppViewContainer"] {
     box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
 }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .stButton > button {
     background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
     color: white !important;
@@ -208,7 +208,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .stButton > button:hover { opacity: 0.88 !important; transform: translateY(-1px) !important; }
 .stButton > button:active { transform: translateY(0) !important; }
 
-/* ── Spinner / Success / Warning ── */
+/* â”€â”€ Spinner / Success / Warning â”€â”€ */
 [data-testid="stSpinner"] { color: #818cf8 !important; }
 .stSuccess { background: #0f2a1e !important; border-color: #16a34a !important; }
 .stWarning { background: #2a1d0a !important; }
@@ -228,7 +228,7 @@ code, pre {
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Session State Init ────────────────────────────────────────────────────────
+# â”€â”€â”€ Session State Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if "index" not in st.session_state:
     st.session_state.index = None
 if "storage_dir" not in st.session_state:
@@ -238,11 +238,11 @@ if "chat_history" not in st.session_state:
 if "index_ready" not in st.session_state:
     st.session_state.index_ready = False
 
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with st.sidebar:
     st.markdown("""
     <div style='text-align:center; padding:1rem 0 1.5rem;'>
-        <div style='font-size:2.8rem;'>🧠</div>
+        <div style='font-size:2.8rem;'>ðŸ§ </div>
         <div style='font-size:1.2rem; font-weight:700; 
              background:linear-gradient(90deg,#818cf8,#c084fc);
              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
@@ -251,7 +251,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Status ──
+    # â”€â”€ Status â”€â”€
     is_ready = st.session_state.index_ready
     dot_class = "status-dot" if is_ready else "status-dot off"
     status_text = "Index Ready" if is_ready else "No Index Loaded"
@@ -264,17 +264,17 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Ingest ──
-    st.markdown("<div class='sidebar-label'>📦 Ingest a Repository</div>", unsafe_allow_html=True)
+    # â”€â”€ Ingest â”€â”€
+    st.markdown("<div class='sidebar-label'>ðŸ“¦ Ingest a Repository</div>", unsafe_allow_html=True)
     repo_url = st.text_input(
         "GitHub Repo URL",
         placeholder="https://github.com/user/repo",
         label_visibility="collapsed",
     )
 
-    if st.button("⚡ Ingest & Build Index"):
+    if st.button("âš¡ Ingest & Build Index"):
         if repo_url.strip():
-            with st.spinner("Cloning repo and building knowledge graph…"):
+            with st.spinner("Cloning repo and building knowledge graphâ€¦"):
                 try:
                     repo_name = repo_url.rstrip("/").split("/")[-1]
                     repo_path = os.path.join(os.getenv("GITHUB_REPO_PATH", "./repo"), repo_name)
@@ -286,63 +286,63 @@ with st.sidebar:
                     st.session_state.storage_dir = storage_dir
                     st.session_state.index_ready = True
                     st.session_state.chat_history = []
-                    st.success("✅ Index built successfully!")
+                    st.success("âœ… Index built successfully!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"âŒ Error: {e}")
         else:
             st.warning("Please provide a valid GitHub URL.")
 
     st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
 
-    # ── Load existing ──
+    # â”€â”€ Load existing â”€â”€
     st.markdown("<div class='sidebar-section'>", unsafe_allow_html=True)
-    st.markdown("<div class='sidebar-label'>💾 Load Existing Index</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sidebar-label'>ðŸ’¾ Load Existing Index</div>", unsafe_allow_html=True)
     manual_storage = st.text_input(
         "Storage path",
         value="./storage",
         label_visibility="collapsed",
     )
-    if st.button("📂 Load Index"):
-        with st.spinner("Loading from storage…"):
+    if st.button("ðŸ“‚ Load Index"):
+        with st.spinner("Loading from storageâ€¦"):
             try:
                 index = load_index(storage_dir=manual_storage)
                 st.session_state.index = index
                 st.session_state.storage_dir = manual_storage
                 st.session_state.index_ready = True
                 st.session_state.chat_history = []
-                st.success("✅ Loaded!")
+                st.success("âœ… Loaded!")
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Could not load index: {e}")
+                st.error(f"âŒ Could not load index: {e}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Clear chat ──
+    # â”€â”€ Clear chat â”€â”€
     if st.session_state.chat_history:
         st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
-        if st.button("🗑️ Clear Conversation"):
+        if st.button("ðŸ—‘ï¸ Clear Conversation"):
             st.session_state.chat_history = []
             st.rerun()
 
-    # ── Info ──
+    # â”€â”€ Info â”€â”€
     st.markdown("""
     <div style='position:absolute; bottom:1.5rem; left:0; right:0; text-align:center;'>
-        <div style='font-size:0.72rem; color:#334155;'>Powered by LlamaIndex · Ollama</div>
+        <div style='font-size:0.72rem; color:#334155;'>Powered by LlamaIndex Â· Ollama</div>
     </div>
     """, unsafe_allow_html=True)
 
-# ─── Main Area ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Main Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 st.markdown("""
 <div class='hero-banner'>
-    <p class='hero-title'>🧠 DevMind</p>
+    <p class='hero-title'>ðŸ§  DevMind</p>
     <p class='hero-sub'>
-        Ask anything about your codebase — architecture, functions, bugs, PRs, and more.
+        Ask anything about your codebase â€” architecture, functions, bugs, PRs, and more.
         Powered by a graph-based RAG engine.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Category legend ──
+# â”€â”€ Category legend â”€â”€
 st.markdown("""
 <div style='display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.5rem;'>
     <span class='category-badge badge-FUNCTION'>FUNCTION</span>
@@ -352,11 +352,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Chat history ──
+# â”€â”€ Chat history â”€â”€
 if st.session_state.chat_history:
     st.markdown("<div class='chat-container'>", unsafe_allow_html=True)
     for entry in st.session_state.chat_history:
-        st.markdown(f"<div class='msg-user'>💬 {entry['query']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='msg-user'>ðŸ’¬ {entry['query']}</div>", unsafe_allow_html=True)
         cat = entry['category']
         st.markdown(f"""
         <div class='msg-assistant'>
@@ -369,7 +369,7 @@ else:
     if not st.session_state.index_ready:
         st.markdown("""
         <div style='text-align:center; padding:4rem 0;'>
-            <div style='font-size:3.5rem; margin-bottom:1rem;'>📂</div>
+            <div style='font-size:3.5rem; margin-bottom:1rem;'>ðŸ“‚</div>
             <div style='color:#475569; font-size:1.05rem;'>
                 Paste a GitHub URL in the sidebar and click <strong style='color:#818cf8;'>Ingest &amp; Build Index</strong> to get started.
             </div>
@@ -378,14 +378,14 @@ else:
     else:
         st.markdown("""
         <div style='text-align:center; padding:4rem 0;'>
-            <div style='font-size:3.5rem; margin-bottom:1rem;'>💬</div>
+            <div style='font-size:3.5rem; margin-bottom:1rem;'>ðŸ’¬</div>
             <div style='color:#475569; font-size:1.05rem;'>
                 Index is ready! Ask your first question below.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-# ── Input bar ──
+# â”€â”€ Input bar â”€â”€
 st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
 
 # Using st.chat_input for modern UX and to fix the infinite rerun loop
@@ -393,12 +393,12 @@ prompt = st.chat_input("Ask a question about your code...")
 
 if prompt:
     if not st.session_state.index_ready:
-        st.warning("⚠️ Please ingest a repo or load an existing index first.")
+        st.warning("âš ï¸ Please ingest a repo or load an existing index first.")
     else:
         # Display the user message immediately for responsiveness
-        st.markdown(f"<div class='msg-user'>💬 {prompt}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='msg-user'>ðŸ’¬ {prompt}</div>", unsafe_allow_html=True)
         
-        with st.spinner("Thinking…"):
+        with st.spinner("Thinkingâ€¦"):
             try:
                 response_text, category = get_answer(st.session_state.index, prompt.strip())
                 st.session_state.chat_history.append({
@@ -409,4 +409,4 @@ if prompt:
                 # Single rerun to update the history display correctly
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"âŒ Error: {e}")
