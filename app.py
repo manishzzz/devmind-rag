@@ -26,37 +26,57 @@ from llama_index.core import Settings
 MODELS_MODE = "Unknown"
 INIT_ERROR = None
 
-# 1. Check for Groq (High-Speed LLM Alternative)
+# Initialize LLM Pool for Failover
+if "llm_pool" not in st.session_state:
+    st.session_state.llm_pool = []
+    st.session_state.current_llm_idx = 0
+
+def add_to_pool(llm, name):
+    st.session_state.llm_pool.append({"llm": llm, "name": name})
+
+# 1. Groq (Fastest)
 if os.getenv("GROQ_API_KEY"):
     try:
         from llama_index.llms.groq import Groq
-        Settings.llm = Groq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
-        MODELS_MODE = "Groq (Llama 3.3)"
+        llm = Groq(model="llama-3.3-70b-versatile", api_key=os.getenv("GROQ_API_KEY"))
+        add_to_pool(llm, "Groq (Llama 3.3)")
     except Exception as e:
         INIT_ERROR = f"Groq Init Failed: {e}"
 
-# 2. Check for Gemini (Standard Cloud Choice)
+# 2. SambaNova (High Limit Backup)
+if os.getenv("SAMBANOVA_API_KEY"):
+    try:
+        from llama_index.llms.sambanova_systems import SambaNovaSystemsClient
+        llm = SambaNovaSystemsClient(
+            model="Meta-Llama-3.1-405B-Instruct", 
+            api_key=os.getenv("SAMBANOVA_API_KEY"),
+            context_window=8192
+        )
+        add_to_pool(llm, "SambaNova (Llama 3.1 405B)")
+    except Exception as e:
+        INIT_ERROR = f"{INIT_ERROR} | SambaNova Failed: {e}" if INIT_ERROR else f"SambaNova Failed: {e}"
+
+# 3. Gemini (Standard Cloud)
 if os.getenv("GOOGLE_API_KEY"):
     try:
         from llama_index.llms.gemini import Gemini
         from llama_index.embeddings.gemini import GeminiEmbedding
         
-        # Use Gemini for embeddings even if using Groq for chat (high limits for embeddings)
+        # Always use Gemini for embeddings (high limits for embeddings)
         Settings.embed_model = GeminiEmbedding(model_name="models/gemini-embedding-001")
         
-        # If Groq didn't set the LLM, use Gemini
-        if MODELS_MODE == "Unknown":
-            Settings.llm = Gemini(model="models/gemini-2.0-flash")
-            MODELS_MODE = "Gemini (Cloud)"
-        elif MODELS_MODE == "Groq (Llama 3)":
-            MODELS_MODE += " + Gemini Embed"
-            
+        gemini_llm = Gemini(model="models/gemini-2.0-flash")
+        add_to_pool(gemini_llm, "Gemini (Cloud)")
     except Exception as e:
-        error_msg = f"Gemini/Embed Init Failed: {e}"
-        INIT_ERROR = f"{INIT_ERROR} | {error_msg}" if INIT_ERROR else error_msg
+        INIT_ERROR = f"{INIT_ERROR} | Gemini Init Failed: {e}" if INIT_ERROR else f"Gemini Init Failed: {e}"
 
-# 3. Fallback to Ollama (Local/Self-hosted)
-if MODELS_MODE == "Unknown":
+# Select Initial LLM
+if st.session_state.llm_pool:
+    active = st.session_state.llm_pool[st.session_state.current_llm_idx]
+    Settings.llm = active["llm"]
+    MODELS_MODE = f"Failover: {active['name']}"
+else:
+    # 4. Fallback to Ollama (Local/Self-hosted)
     try:
         from llama_index.llms.ollama import Ollama
         from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -65,7 +85,7 @@ if MODELS_MODE == "Unknown":
         Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
         MODELS_MODE = "Ollama (Local)"
     except Exception as e:
-        INIT_ERROR = f"Ollama setup failed: {e}"
+        INIT_ERROR = f"Ollama/Failover setup failed: {e}"
         MODELS_MODE = "Offline/No Models"
 
 from ingest import clone_repo
