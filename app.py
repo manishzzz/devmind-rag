@@ -27,9 +27,21 @@ if os.getenv("GOOGLE_API_KEY"):
     from llama_index.llms.gemini import Gemini
     from llama_index.embeddings.gemini import GeminiEmbedding
     
-    Settings.llm = Gemini(model="models/gemini-2.0-flash", api_key=os.getenv("GOOGLE_API_KEY"))
-    Settings.embed_model = GeminiEmbedding(model_name="models/embedding-001", api_key=os.getenv("GOOGLE_API_KEY"))
+    # Use the most stable and widely supported model names
+    Settings.llm = Gemini(model="models/gemini-1.5-flash")
+    Settings.embed_model = GeminiEmbedding(model_name="models/text-embedding-004")
     MODELS_MODE = "Gemini (Cloud)"
+    
+    # --- Debug: List Models (Optional) ---
+    if st.sidebar.checkbox("Debug: List available models"):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            models = [m.name for m in genai.list_models()]
+            st.sidebar.write("Available models:")
+            st.sidebar.code("\n".join(models))
+        except Exception as e:
+            st.sidebar.error(f"Debug failed: {e}")
 else:
     from llama_index.llms.ollama import Ollama
     from llama_index.embeddings.huggingface import HuggingFaceEmbedding
