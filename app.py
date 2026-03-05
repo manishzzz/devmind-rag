@@ -31,10 +31,9 @@ if os.getenv("GOOGLE_API_KEY"):
         from llama_index.llms.gemini import Gemini
         from llama_index.embeddings.gemini import GeminiEmbedding
         
-        # In 2026, we use the latest flash and embedding models
-        # Standardize on names that are less likely to 404
-        Settings.llm = Gemini(model="gemini-1.5-flash")
-        Settings.embed_model = GeminiEmbedding(model_name="text-embedding-004")
+        # Verified model names from diagnostic log
+        Settings.llm = Gemini(model="models/gemini-2.0-flash")
+        Settings.embed_model = GeminiEmbedding(model_name="models/gemini-embedding-001")
         MODELS_MODE = "Gemini (Cloud)"
     except Exception as e:
         GEMINI_INIT_ERROR = str(e)
