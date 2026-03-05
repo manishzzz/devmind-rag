@@ -30,31 +30,53 @@ class RobustTextLoader(TextLoader):
         metadata = {"source": self.file_path}
         return [Document(page_content=clean_text, metadata=metadata)]
 
+def generate_tree(startpath: str) -> str:
+    """Generates a string representation of the file tree for LLM structural awareness."""
+    tree = ["Repository Structure:"]
+    for root, dirs, files in os.walk(startpath):
+        # Skip hidden/binary folders for the tree map
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+        level = root.replace(startpath, '').count(os.sep)
+        indent = ' ' * 4 * (level)
+        tree.append(f"{indent}{os.path.basename(root)}/")
+        subindent = ' ' * 4 * (level + 1)
+        # Only show a subset of files to keep the tree document efficient
+        for f in files[:20]: # Cap at 20 files per dir for the map
+            if not f.endswith(('.pyc', '.png', '.jpg', '.exe')):
+                tree.append(f"{subindent}{f}")
+        if len(files) > 20:
+            tree.append(f"{subindent}... ({len(files)-20} more files)")
+    return "\n".join(tree)
+
 def get_documents(repo_path: str) -> List[Document]:
-    """Recursively loads all files from the repository using a robust crawler."""
+    """Recursively loads all files and adds a structural map document."""
     if not os.path.exists(repo_path):
         return []
     
     docs = []
-    # Industry standard: don't rely on generic globs that skip dot-folders.
-    # We walk the directory manually to catch .github, .gitpod, etc.
+    
+    # Industrial Standard: Add a 'Structural Map' as the first document
+    # This gives the LLM a bird's eye view for questions like "Explain the folder structure"
+    tree_content = generate_tree(repo_path)
+    docs.append(Document(
+        page_content=tree_content, 
+        metadata={"source": "VIRTUAL_REPOSITORY_MAP.txt", "type": "structure_map"}
+    ))
+
     for root, dirs, files in os.walk(repo_path):
-        # We don't want to index the .git directory itself
         if ".git" in root.split(os.sep): continue
 
         for file in files:
             file_path = os.path.join(root, file)
-            # Skip common binary/large files to keep the index efficient
             if file.endswith(('.png', '.jpg', '.jpeg', '.gif', '.zip', '.exe', '.bin', '.pdf', '.pyc')):
                 continue
             
             try:
-                # Use our robust loader for character sanitization
                 loader = RobustTextLoader(file_path)
                 docs.extend(loader.load())
             except Exception as e:
                 print(f"[!] Skipping {file_path}: {e}")
                 continue
     
-    print(f"[*] Loaded {len(docs)} documents from {repo_path}")
+    print(f"[*] Loaded {len(docs)} documents (including structural map) from {repo_path}")
     return docs
