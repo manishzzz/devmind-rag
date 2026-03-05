@@ -2,7 +2,6 @@
 # Handles query classification and LLM querying logic for DevMind.
 
 import asyncio
-from llama_index.llms.ollama import Ollama
 from prompts import (
     QUERY_CLASSIFIER_PROMPT, FUNCTION_EXPLAIN_PROMPT,
     ARCHITECTURE_PROMPT, DEBUG_PROMPT, ISSUE_PR_PROMPT
