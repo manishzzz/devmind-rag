@@ -39,12 +39,12 @@ def get_llm():
                 print(f"[!] {model_name} failed: {e}")
                 continue
 
-    # 2. Try SambaNova (Llama 3.1 70B - High Speed, Professional)
+    # 2. Try SambaNova (Llama 3.3 70B - High Speed, Professional)
     if sambanova_api_key:
         try:
-            print("[*] Attempting SambaNova (Llama 3.1 70B)")
+            print("[*] Attempting SambaNova (Llama 3.3 70B)")
             return ChatOpenAI(
-                model="Meta-Llama-3.1-70B-Instruct",
+                model="Meta-Llama-3.3-70B-Instruct",
                 openai_api_key=sambanova_api_key,
                 openai_api_base="https://api.sambanova.ai/v1",
                 temperature=0.1
