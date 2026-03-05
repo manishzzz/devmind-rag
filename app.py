@@ -60,15 +60,23 @@ if os.getenv("SAMBANOVA_API_KEY"):
 if os.getenv("GOOGLE_API_KEY"):
     try:
         from llama_index.llms.gemini import Gemini
-        from llama_index.embeddings.gemini import GeminiEmbedding
-        
-        # Always use Gemini for embeddings (high limits for embeddings)
-        Settings.embed_model = GeminiEmbedding(model_name="models/gemini-embedding-001")
-        
         gemini_llm = Gemini(model="models/gemini-2.0-flash")
         add_to_pool(gemini_llm, "Gemini (Cloud)")
     except Exception as e:
         INIT_ERROR = f"{INIT_ERROR} | Gemini Init Failed: {e}" if INIT_ERROR else f"Gemini Init Failed: {e}"
+
+# Always use local embeddings to bypass all quota limits permanently
+try:
+    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+    # This runs on the Streamlit server (CPU) and is 100% free/unlimited
+    Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
+except Exception as e:
+    # Fallback to Gemini for embeddings if HF fails for some reason
+    if os.getenv("GOOGLE_API_KEY"):
+        from llama_index.embeddings.gemini import GeminiEmbedding
+        Settings.embed_model = GeminiEmbedding(model_name="models/gemini-embedding-001")
+    else:
+        INIT_ERROR = f"{INIT_ERROR} | Embeddings setup failed: {e}" if INIT_ERROR else f"Embeddings setup failed: {e}"
 
 # Select Initial LLM
 if st.session_state.llm_pool:

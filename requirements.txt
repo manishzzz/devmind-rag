@@ -6,6 +6,7 @@ gitpython
 nest_asyncio
 llama-index-llms-gemini
 llama-index-embeddings-gemini
+llama-index-embeddings-huggingface
 llama-index-llms-groq
 llama-index-llms-sambanovasystems
 sseclient-py
