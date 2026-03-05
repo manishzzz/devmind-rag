@@ -20,25 +20,43 @@ except RuntimeError:
 import nest_asyncio
 nest_asyncio.apply()
 
-# Configure Models (Gemini if API Key exists, else local Ollama)
+# Configure Models
 from llama_index.core import Settings
 
 MODELS_MODE = "Unknown"
-GEMINI_INIT_ERROR = None
+INIT_ERROR = None
 
+# 1. Check for Groq (High-Speed LLM Alternative)
+if os.getenv("GROQ_API_KEY"):
+    try:
+        from llama_index.llms.groq import Groq
+        Settings.llm = Groq(model="llama3-70b-8192", api_key=os.getenv("GROQ_API_KEY"))
+        MODELS_MODE = "Groq (Llama 3)"
+    except Exception as e:
+        INIT_ERROR = f"Groq Init Failed: {e}"
+
+# 2. Check for Gemini (Standard Cloud Choice)
 if os.getenv("GOOGLE_API_KEY"):
     try:
         from llama_index.llms.gemini import Gemini
         from llama_index.embeddings.gemini import GeminiEmbedding
         
-        # Verified model names from diagnostic log
-        Settings.llm = Gemini(model="models/gemini-2.0-flash")
+        # Use Gemini for embeddings even if using Groq for chat (high limits for embeddings)
         Settings.embed_model = GeminiEmbedding(model_name="models/gemini-embedding-001")
-        MODELS_MODE = "Gemini (Cloud)"
+        
+        # If Groq didn't set the LLM, use Gemini
+        if MODELS_MODE == "Unknown":
+            Settings.llm = Gemini(model="models/gemini-2.0-flash")
+            MODELS_MODE = "Gemini (Cloud)"
+        elif MODELS_MODE == "Groq (Llama 3)":
+            MODELS_MODE += " + Gemini Embed"
+            
     except Exception as e:
-        GEMINI_INIT_ERROR = str(e)
-        MODELS_MODE = "Gemini (Init Failed)"
-else:
+        error_msg = f"Gemini/Embed Init Failed: {e}"
+        INIT_ERROR = f"{INIT_ERROR} | {error_msg}" if INIT_ERROR else error_msg
+
+# 3. Fallback to Ollama (Local/Self-hosted)
+if MODELS_MODE == "Unknown":
     try:
         from llama_index.llms.ollama import Ollama
         from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -47,17 +65,17 @@ else:
         Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
         MODELS_MODE = "Ollama (Local)"
     except Exception as e:
-        GEMINI_INIT_ERROR = f"Ollama setup failed: {e}"
-        MODELS_MODE = "Ollama (Offline)"
+        INIT_ERROR = f"Ollama setup failed: {e}"
+        MODELS_MODE = "Offline/No Models"
 
 from ingest import clone_repo
 from graph_index import build_index, load_index
 from query_engine import get_answer
 
 # Display initialization error if any
-if GEMINI_INIT_ERROR:
-    st.sidebar.error(f"Initialization Error: {GEMINI_INIT_ERROR}")
-    if "models/" not in GEMINI_INIT_ERROR:
+if INIT_ERROR:
+    st.sidebar.error(f"Initialization Error: {INIT_ERROR}")
+    if "models/" not in INIT_ERROR:
         st.sidebar.info("Tip: Try adding or removing 'models/' prefix in the model name.")
 
 # Debug: List Models (Optional)

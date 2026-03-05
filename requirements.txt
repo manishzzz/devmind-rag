@@ -8,3 +8,4 @@ gitpython
 nest_asyncio
 llama-index-llms-gemini
 llama-index-embeddings-gemini
+llama-index-llms-groq
