@@ -46,11 +46,11 @@ if os.getenv("GROQ_API_KEY"):
 # 2. SambaNova (High Limit Backup)
 if os.getenv("SAMBANOVA_API_KEY"):
     try:
-        from llama_index.llms.sambanovasystems import SambaNovaSystemsClient
-        llm = SambaNovaSystemsClient(
+        from llama_index.llms.sambanovasystems import SambaNovaCloud
+        llm = SambaNovaCloud(
             model="Meta-Llama-3.1-405B-Instruct", 
             api_key=os.getenv("SAMBANOVA_API_KEY"),
-            context_window=8192
+            max_tokens=2048
         )
         add_to_pool(llm, "SambaNova (Llama 3.1 405B)")
     except Exception as e:
