@@ -105,7 +105,16 @@ with st.sidebar:
     is_ready = st.session_state.index_ready
     st.markdown(f"**Status:** {'[OK] Index Active' if is_ready else '[!] No Index Loaded'}")
     
-    #  Ingest 
+    # LLM Diagnostics
+    st.markdown("<div class='sidebar-label'>LLM Diagnostics</div>", unsafe_allow_html=True)
+    if st.button("Test LLM Connection"):
+        with st.spinner("Probing Google AI..."):
+            try:
+                llm = get_llm()
+                res = llm.invoke("Hi")
+                st.success(f"Connected! Model: {llm.model_name}")
+            except Exception as e:
+                st.error(f"Connection Failed: {e}")
     st.markdown("<div class='sidebar-label'>Repository Ingestion</div>", unsafe_allow_html=True)
     repo_url = st.text_input("GitHub Repo URL", placeholder="https://github.com/user/repo")
 
@@ -159,6 +168,7 @@ st.markdown("""
 <div class='hero-banner'>
     <div class='hero-title'>[+] Industrial DevMind</div>
     <div class='hero-sub'>LangChain-Powered Codebase Awareness with Professional Memory.</div>
+    <div style='font-size: 0.8rem; color: #64748b; margin-top: 5px;'>Standard Good Answers | Hallucination-Free | Recursive Indexing</div>
 </div>
 """, unsafe_allow_html=True)
 

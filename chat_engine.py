@@ -12,36 +12,40 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
 
 def get_llm():
-    """Returns a Chat model, prioritizing Google Gemini Flash with fallbacks."""
+    """Returns a Chat model, prioritizing Google Gemini Flash with multi-alias fallbacks."""
     api_key = os.getenv("GOOGLE_API_KEY")
     if api_key and "models/" in api_key:
         api_key = api_key.replace("models/", "")
 
-    # Try Gemini 1.5 Flash (preferred for free tier)
-    try:
-        # We use 'gemini-1.5-flash-latest' to ensure we get the most available version
-        print("[*] Attempting to use Google Gemini 1.5 Flash.")
-        return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash-latest", 
-            google_api_key=api_key,
-            temperature=0.1,
-            convert_system_message_to_human=True
-        )
-    except Exception as e:
-        print(f"[!] Gemini Flash failed: {e}. Trying Gemini 1.5 Pro.")
+    # Industrial standard: Try standard alias, then latest alias, then 8b, then Pro
+    model_aliases = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash-001", "gemini-1.5-pro-latest"]
+    
+    last_err = None
+    for model_name in model_aliases:
         try:
-            return ChatGoogleGenerativeAI(
-                model="gemini-1.5-pro-latest", 
+            print(f"[*] Attempting to use Google Gemini: {model_name}")
+            llm = ChatGoogleGenerativeAI(
+                model=model_name, 
                 google_api_key=api_key,
                 temperature=0.1,
                 convert_system_message_to_human=True
             )
-        except Exception as e2:
-            print(f"[!] Gemini Pro failed: {e2}. Falling back to Groq.")
-            groq_api_key = os.getenv("GROQ_API_KEY")
-            if groq_api_key:
-                return ChatGroq(model_name="llama-3.1-70b-versatile", groq_api_key=groq_api_key)
-            raise e2
+            # Test the model with a tiny probe to verify it's NOT a 404
+            llm.invoke("Hi") 
+            return llm
+        except Exception as e:
+            print(f"[!] {model_name} failed: {e}")
+            last_err = e
+            continue
+
+    # Fallback to Groq if all Google attempts fail
+    print(f"[!] All Gemini attempts failed. Falling back to Groq.")
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if groq_api_key:
+        return ChatGroq(model_name="llama-3.1-70b-versatile", groq_api_key=groq_api_key)
+    
+    # If no Groq key, raise the last Gemini error
+    raise last_err
 
 def create_chat_engine(vector_store, prompt_template: str = ""):
     """Creates a modern LangChain retrieval chain."""

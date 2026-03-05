@@ -1,8 +1,8 @@
-langchain
-langchain-community
-langchain-google-genai
+langchain>=0.2.0
+langchain-community>=0.2.0
+langchain-google-genai>=1.0.10
+langchain_classic>=0.1.0
 langchain-groq
-langchain-huggingface
 faiss-cpu
 streamlit
 python-dotenv
