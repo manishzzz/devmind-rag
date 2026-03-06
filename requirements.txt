@@ -16,3 +16,4 @@ python-dotenv
 faiss-cpu
 langchain-mistralai
 langchain-ollama
+langsmith
