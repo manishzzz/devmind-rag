@@ -17,3 +17,4 @@ faiss-cpu
 langchain-mistralai
 langchain-ollama
 langsmith
+llama-index-callbacks-langsmith
