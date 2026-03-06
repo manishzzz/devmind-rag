@@ -1,222 +1,236 @@
-# app.py
-# Main Streamlit UI for the DevMind "Industrial Standard" Codebase RAG Assistant.
-# Migrated to LangChain + FAISS for robust performance and professional features.
-
-import os
+# app.py - Streamlit UI for DevMind
 import streamlit as st
+import os
+from pathlib import Path
 from dotenv import load_dotenv
-from ingest import clone_repo
-from loaders import get_documents
-from vector_store import build_vector_store, load_vector_store
-from chat_engine import get_llm, create_chat_engine
-from prompts import QUERY_CLASSIFIER_PROMPT
 
-# Load environment variables
-load_dotenv()
+from ingest import clone_repo, _safe_delete_folder
+from indexer import build_index, load_index, get_index_stats
+from query_engine import get_answer, extract_target_class
 
-#  Page Config 
 st.set_page_config(
-    page_title="DevMind Codebase RAG Assistant",
-    page_icon="[IQ]",
+    page_title="DevMind",
+    page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-#  Custom CSS (Industrial, Sleek, Professional)
+# --- Custom Styling ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/*  Root & Background  */
-html, body, [data-testid="stAppViewContainer"] {
-    background: #0f172a !important;
-    color: #f1f5f9 !important;
-    font-family: 'Inter', sans-serif !important;
-}
-[data-testid="stHeader"], .stApp header { background: transparent !important; }
-[data-testid="stSidebar"] { background: #1e293b !important; border-right: 1px solid #334155; }
-
-/*  Hero Banner  */
-.hero-banner {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border: 1px solid #334155;
-    border-radius: 12px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-}
-.hero-title {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #38bdf8;
-    margin-bottom: 0.5rem;
-}
-.hero-sub {
-    color: #94a3b8;
-    font-size: 1rem;
-}
-
-/*  Chat UI  */
-.msg-user {
-    background: #334155;
-    border-radius: 12px 12px 2px 12px;
-    padding: 1rem;
-    margin: 0.5rem 0;
-    align-self: flex-end;
-}
-.msg-assistant {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 12px 12px 12px 2px;
-    padding: 1rem;
-    margin: 0.5rem 0;
-}
-
-/*  Sidebar UI  */
-.sidebar-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #64748b;
-    margin-top: 1.5rem;
-}
-
-/* Buttons */
-.stButton > button {
-    background: #0ea5e9 !important;
-    color: white !important;
-    border-radius: 6px !important;
-}
+    .stApp { background-color: #0e1117; color: #ffffff; }
+    .stSidebar { background-color: #161b22; }
+    .main-title { font-size: 3rem; font-weight: 800; color: #58a6ff; }
+    .badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; margin-right: 5px; }
+    .badge-function { background-color: rgba(88, 166, 255, 0.2); color: #58a6ff; border: 1px solid #58a6ff; }
+    .badge-architecture { background-color: rgba(187, 128, 255, 0.2); color: #bc8cff; border: 1px solid #bc8cff; }
+    .badge-debug { background-color: rgba(248, 81, 73, 0.2); color: #f85149; border: 1px solid #f85149; }
+    .badge-issue { background-color: rgba(63, 185, 80, 0.2); color: #3fb950; border: 1px solid #3fb950; }
 </style>
 """, unsafe_allow_html=True)
 
-#  Session State Init 
-if "chat_chain" not in st.session_state:
-    st.session_state.chat_chain = None
-if "index_ready" not in st.session_state:
-    st.session_state.index_ready = False
-if "chat_history_log" not in st.session_state:
-    st.session_state.chat_history_log = []
+# --- Init LLM once ---
+if "llm" not in st.session_state:
+    with st.spinner("Initializing LLM chain..."):
+        try:
+            from llm_router import get_working_llm, get_working_embeddings
+            llm, llm_name = get_working_llm()
+            embeddings, emb_name = get_working_embeddings()
+            st.session_state.llm = llm
+            st.session_state.embeddings = embeddings
+            st.session_state.llm_name = llm_name
+            st.session_state.emb_name = emb_name
+            st.session_state.index = None
+            st.session_state.chat_history = []
+        except Exception as e:
+            st.error(f"LLM initialization failed: {str(e)}")
+            st.stop()
 
-#  Sidebar 
+# --- Sidebar ---
 with st.sidebar:
-    st.markdown("<div style='text-align:center;'><h2>DevMind [IQ]</h2></div>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#58a6ff;'>🧠 DevMind</h1>", unsafe_allow_html=True)
+    st.caption("Codebase RAG Assistant · PropertyGraph Edition")
+    st.divider()
     
     # Status
-    is_ready = st.session_state.index_ready
-    st.markdown(f"**Status:** {'[OK] Index Active' if is_ready else '[!] No Index Loaded'}")
+    st.markdown("**SYSTEM STATUS**")
+    stats = get_index_stats()
+    if st.session_state.get("index") or stats:
+        st.success("✅ Index Active")
+        if stats:
+            st.metric("Files Indexed", stats.get("total_files", 0))
+            st.metric("Total Chunks", stats.get("total_chunks", 0))
+        
+        if st.session_state.get("current_repo"):
+            repo_name = st.session_state.current_repo.split("/")[-1]
+            st.caption(f"📍 Active Repo: {repo_name}")
+        else:
+            st.caption("📍 Active Repo: Unnamed")
+    else:
+        st.warning("⚠️ No Index Loaded")
     
-    # LLM Diagnostics
-    st.markdown("<div class='sidebar-label'>LLM Diagnostics</div>", unsafe_allow_html=True)
-    if st.button("Test LLM Connection"):
-        with st.spinner("Probing Google AI..."):
-            try:
-                llm = get_llm()
-                res = llm.invoke("Hi")
-                st.success(f"Connected! Model: {llm.model_name}")
-            except Exception as e:
-                st.error(f"Connection Failed: {e}")
-    st.markdown("<div class='sidebar-label'>Repository Ingestion</div>", unsafe_allow_html=True)
-    repo_url = st.text_input("GitHub Repo URL", placeholder="https://github.com/user/repo")
+    st.info(f"LLM: {st.session_state.llm_name}")
+    st.info(f"Embeddings: {st.session_state.emb_name}")
+    st.divider()
 
-    if st.button("Build Industrial Index"):
-        if repo_url.strip():
-            with st.spinner("Analyzing codebase and generating vector store..."):
+    # Ingest
+    st.markdown("**REPOSITY INGESTION**")
+    repo_url = st.text_input("GitHub URL", placeholder="https://github.com/user/repo")
+    
+    if st.button("🚀 Ingest & Build Index", type="primary", use_container_width=True):
+        if not repo_url.strip():
+            st.error("Please enter a valid GitHub URL")
+        else:
+            # CRITICAL: Clear old index from memory first
+            st.session_state.index = None
+            st.session_state.chat_history = []
+            st.session_state.current_repo = ""
+
+            # CRITICAL: Delete old folders before building (Windows-safe)
+            _safe_delete_folder("./storage")
+            _safe_delete_folder("./repo")
+            print("[APP] Cleared old context folders")
+
+            with st.spinner("Phase 1: Cloning fresh repository..."):
                 try:
-                    repo_name = repo_url.rstrip("/").split("/")[-1]
-                    repo_path = os.path.join("./repo", repo_name)
-                    storage_dir = os.path.join("./storage_faiss", repo_name)
-
-                    clone_repo(repo_url, dest=repo_path)
-                    docs = get_documents(repo_path)
-                    vector_store = build_vector_store(docs, storage_dir=storage_dir)
-                    
-                    st.session_state.chat_chain = create_chat_engine(vector_store, "General Codebase Assistant")
-                    st.session_state.index_ready = True
-                    st.session_state.chat_history_log = []
-                    st.success("Industrial Index Built!")
+                    # Clear old repo folder too
+                    if os.path.exists("./repo"):
+                        shutil.rmtree("./repo")
+                    repo_path = clone_repo(repo_url.strip())
+                    st.toast("Cloning complete!", icon="✅")
+                except Exception as e:
+                    st.error(f"Clone failed: {e}")
+                    st.stop()
+            
+            with st.spinner("Phase 2: Building PropertyGraph Index (Processing nodes)..."):
+                try:
+                    idx = build_index(
+                        repo_path,
+                        st.session_state.llm,
+                        st.session_state.embeddings
+                    )
+                    st.session_state.index = idx
+                    st.session_state.current_repo = repo_url.strip()
+                    st.session_state.repo_path = repo_path
+                    st.session_state.chat_history = []
+                    st.success("Fresh index built and ready!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Ingestion Fail: {e}")
-        else:
-            st.warning("Please provide a URL.")
-
-    #  Load existing 
-    st.markdown("<div class='sidebar-label'>Load Existing FAISS Index</div>", unsafe_allow_html=True)
-    manual_storage = st.text_input("Index Directory", value="./storage_faiss")
-    if st.button("Load RAG Engine"):
-        with st.spinner("Loading LangChain context..."):
+                    st.error(f"Index build failed: {e}")
+    
+    st.divider()
+    
+    # Load existing
+    st.markdown("**PERSISTENT STORAGE**")
+    storage_dir = st.text_input("Index Path", value="./storage")
+    if st.button("📂 Load Existing Index", use_container_width=True):
+        with st.spinner("Loading indexed shards..."):
             try:
-                # Find the first subdirectory if the user gave the root
-                if manual_storage == "./storage_faiss":
-                    if not os.path.exists("./storage_faiss"):
-                        st.error("Storage directory not found.")
-                        st.stop()
-                    subs = [d for d in os.listdir("./storage_faiss") if os.path.isdir(os.path.join("./storage_faiss", d))]
-                    if subs: manual_storage = os.path.join("./storage_faiss", subs[0])
+                from indexer import load_index
+                idx = load_index(
+                    st.session_state.llm,
+                    st.session_state.embeddings
+                )
+                st.session_state.index = idx
+                st.session_state.chat_history = []
                 
-                vector_store = load_vector_store(storage_dir=manual_storage)
-                st.session_state.chat_chain = create_chat_engine(vector_store, "General Codebase Assistant")
-                st.session_state.index_ready = True
-                st.session_state.chat_history_log = []
-                st.success("Loaded!")
+                # Restore repo name from stats if possible
+                stats = get_index_stats()
+                if stats and "repo_path" in stats:
+                    st.session_state.current_repo = stats["repo_path"]
+                    st.session_state.repo_path = stats["repo_path"]
+                
+                st.success("Index loaded successfully!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Load Fail: {e}")
+                st.error(f"Failed to load index from {storage_dir}: {e}")
 
-#  Main Area 
-st.markdown("""
-<div class='hero-banner'>
-    <div class='hero-title'>[+] Industrial DevMind</div>
-    <div class='hero-sub'>LangChain-Powered Codebase Awareness with Professional Memory.</div>
-    <div style='font-size: 0.8rem; color: #64748b; margin-top: 5px;'>Standard Good Answers | Hallucination-Free | Recursive Indexing</div>
-</div>
-""", unsafe_allow_html=True)
+# --- Main area ---
+st.markdown("<h1 class='main-title'>DevMind</h1>", unsafe_allow_html=True)
 
-#  Chat History Display 
-for chat in st.session_state.chat_history_log:
-    st.markdown(f"<div class='msg-user'>{chat['q']}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='msg-assistant'>{chat['a']}</div>", unsafe_allow_html=True)
+current_repo = st.session_state.get("current_repo", "")
+if current_repo:
+    repo_name = current_repo.split("/")[-1]
+    st.caption(f"Answering from: {repo_name} (2026 Industrial-Grade)")
+else:
+    st.caption("No repo indexed yet · 2026 Industrial-Grade")
 
-#  Query Input 
-query = st.chat_input("Query your codebase...")
+# Category badges
+c1, c2, c3, c4 = st.columns(4)
+c1.markdown("<div class='badge badge-function'>FUNCTION</div>", unsafe_allow_html=True)
+c2.markdown("<div class='badge badge-architecture'>ARCHITECTURE</div>", unsafe_allow_html=True)
+c3.markdown("<div class='badge badge-debug'>DEBUG</div>", unsafe_allow_html=True)
+c4.markdown("<div class='badge badge-issue'>ISSUE/PR</div>", unsafe_allow_html=True)
 
-if query:
-    if not st.session_state.index_ready:
-        st.warning("Please load or build an index first.")
+st.divider()
+
+# Chat history
+for msg in st.session_state.get("chat_history", []):
+    with st.chat_message(msg["role"], avatar="🧠" if msg["role"] == "assistant" else None):
+        if msg["role"] == "assistant" and "category" in msg:
+            color_map = {
+                "FUNCTION": "#58a6ff", "ARCHITECTURE": "#bc8cff",
+                "DEBUG": "#f85149", "ISSUE_PR": "#3fb950"
+            }
+            color = color_map.get(msg["category"], "#58a6ff")
+            st.markdown(f"<span style='color:{color}; font-weight:700;'>[{msg['category']}]</span>", unsafe_allow_html=True)
+        st.markdown(msg["content"])
+        if "sources" in msg and msg["sources"]:
+            with st.expander("📝 Source files used"):
+                for s in msg["sources"]:
+                    st.code(s, language="text")
+
+# Input
+if prompt := st.chat_input("Ask about codebase logic, architecture, or bugs..."):
+    if not st.session_state.get("index"):
+        st.warning("Please build or load a repository index first.")
     else:
-        st.markdown(f"<div class='msg-user'>{query}</div>", unsafe_allow_html=True)
-        with st.spinner("Retrieving industrial context..."):
-            try:
-                # Modern LangChain 0.4.x invocation
-                result = st.session_state.chat_chain.invoke({"input": query})
-                answer = result["answer"]
-                
-                # Metadata sources from context
-                context_docs = result.get("context", [])
-                if not context_docs:
-                    full_answer = "I could not find any relevant files in the index to answer this question. Please ensure the repository is fully ingested."
-                else:
-                    sources = list(set([doc.metadata.get('source', 'Unknown') for doc in context_docs]))
-                    # Get relative path for cleaner display
-                    clean_sources = []
-                    for s in sources:
-                        # Try to make it relative to the repo root
-                        parts = s.split(os.sep)
-                        if "repo" in parts:
-                            clean_sources.append(os.sep.join(parts[parts.index("repo")+2:]))
-                        else:
-                            clean_sources.append(os.path.basename(s))
+        # User message
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Assistant response
+        with st.chat_message("assistant", avatar="🧠"):
+            with st.spinner("Analyzing graph nodes and reasoning..."):
+                try:
+                    import query_engine
+                    query_engine.REPO_PATH = st.session_state.get("repo_path", "./repo")
+                    
+                    answer, category, sources = get_answer(
+                        st.session_state.index, prompt, st.session_state.llm
+                    )
+                    
+                    # Warn if answer mentions a different class than what was asked
+                    asked_class = extract_target_class(prompt)
+                    if asked_class:
+                        answered_class = extract_target_class(answer[:200])
+                        if answered_class and answered_class != asked_class:
+                            st.warning(
+                                f"Asked about: {asked_class} | "
+                                f"Answer mentions: {answered_class} — "
+                                f"verify the response carefully"
+                            )
+                    
+                    color_map = {
+                        "FUNCTION": "#58a6ff", "ARCHITECTURE": "#bc8cff",
+                        "DEBUG": "#f85149", "ISSUE_PR": "#3fb950"
+                    }
+                    color = color_map.get(category, "#58a6ff")
+                    
+                    st.markdown(f"<span style='color:{color}; font-weight:700;'>[{category}]</span>", unsafe_allow_html=True)
+                    st.markdown(answer)
 
-                    source_text = "\n\n**Sources Analyzed:**\n" + "\n".join([f"- `{s}`" for s in clean_sources[:5]])
-                    full_answer = f"{answer}{source_text}"
-                
-                st.session_state.chat_history_log.append({"q": query, "a": full_answer})
-                st.rerun()
-            except Exception as e:
-                st.error(f"Query Error: {e}")
-
-    #  Clear chat 
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Clear All History"):
-        st.session_state.chat_history_log = []
-        st.rerun()
+                    if sources:
+                        with st.expander("📝 Source files used"):
+                            for s in sources:
+                                st.code(s, language="text")
+                    
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": answer,
+                        "category": category,
+                        "sources": sources
+                    })
+                except Exception as e:
+                    st.error(f"Retrieval Error: {str(e)}")
